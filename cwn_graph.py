@@ -23,6 +23,20 @@ class CWN_Graph:
         self.import_nodes()
         self.import_edges()
     
+    def normalize_cwnid(self, cwnid):
+        """normalize cwn_id to lemma_id(6) + sense_sno(2)
+        facet_id(2) is not considered
+        """
+        if not cwnid:
+            return cwnid
+
+        if len(cwnid) > 8:
+            cwnid = cwnid[:8]
+        else:
+            pass
+        
+        return cwnid
+
     def import_nodes(self):
         self.import_node_cwn_glyph()
         self.import_node_cwn_lemma()
@@ -43,12 +57,13 @@ class CWN_Graph:
         self.import_edge_cwn_upword()
         self.import_edge_varword()
         self.import_edge_relations()
+        self.import_edge_cwn_relation()
         print("E cardinality: %d " % (len(self.E),))
         return
     
     def import_node_cwn_glyph(self):
         print("importing glyph nodes")
-        rows = self.select_query("SELECT cwn_lemma FROM cwn_lemma")
+        rows = self.select_query("SELECT lemma_type FROM cwn_lemma")
         counter = 0
         for r in rows:
             gtxt = r[0]
@@ -84,21 +99,23 @@ class CWN_Graph:
 
     def import_node_cwn_sense(self):
         print("importing sense nodes")
-        rows = self.select_query(
-                "SELECT sense_id, sense_def, domain_id, group_concat(pos) " + 
-                "FROM cwn_sense " +
-                "LEFT JOIN pos " +
-                "ON cwn_sense.sense_id == pos.cwn_id " + 
-                "GROUP BY sense_id")
-                
-        rows += self.select_query(
-                "SELECT sense_tmpid, sense_def, domain_id, group_concat(pos) " + 
-                "FROM cwn_sensetmp " +
-                "LEFT JOIN pos " +
-                "ON cwn_sensetmp.sense_tmpid == pos.cwn_id " + 
-                "GROUP BY sense_tmpid"
-                )
+        rows = self.select_query("""
+        SELECT sense_id, sense_def, domain_id, 
+        group_concat(pos), group_concat(cwn_example.example_cont, ";")
+        FROM cwn_sense 
+        LEFT JOIN cwn_pos ON cwn_sense.sense_id == cwn_pos.cwn_id 
+        LEFT JOIN cwn_example ON cwn_sense.sense_id == cwn_example.cwn_id
+        GROUP BY sense_id
+        """
+        )
 
+        def pick_pos(poslist):
+            unique_pos = list(set(poslist.split(",")))
+            if len(unique_pos) == 1:
+                return unique_pos[0]
+            else:
+                return ",".join(unique_pos)
+                
         for r in rows:
             if r[0] is None or len(r[0]) == 0:
                 continue
@@ -107,7 +124,8 @@ class CWN_Graph:
                 "node_type": "sense",
                 "def": r[1],
                 "domain": r[2] if r[2] is not None else "",
-                "pos": r[3] if r[3] is not None else ""
+                "pos": pick_pos(r[3]) if r[3] is not None else "",
+                "examples": r[4].split(";") if r[4] is not None else ""
                 }
             self.add_node(node_id, node_data)
 
@@ -117,17 +135,10 @@ class CWN_Graph:
         rows = self.select_query(
                 "SELECT facet_id, facet_def, domain_id, group_concat(pos) " + 
                 "FROM cwn_facet " +
-                "LEFT JOIN pos " +
-                "ON cwn_facet.facet_id == pos.cwn_id " + 
+                "LEFT JOIN cwn_pos " +
+                "ON cwn_facet.facet_id == cwn_pos.cwn_id " + 
                 "GROUP BY facet_id")
-                
-        rows += self.select_query(
-                "SELECT facet_tmpid, facet_def, domain_id, group_concat(pos) " + 
-                "FROM cwn_facettmp " +
-                "LEFT JOIN pos " +
-                "ON cwn_facettmp.facet_tmpid == pos.cwn_id " + 
-                "GROUP BY facet_tmpid"
-                )
+            
 
         for r in rows:
             if r[0] is None or len(r[0]) == 0:
@@ -144,7 +155,7 @@ class CWN_Graph:
     def import_edge_cwn_lemma(self):
         print("importing lemma edges")
         rows = self.select_query(
-                "SELECT cwn_lemma, lemma_id FROM cwn_lemma "
+                "SELECT lemma_type, lemma_id FROM cwn_lemma "
                )
 
         for r in rows:
@@ -159,9 +170,7 @@ class CWN_Graph:
     def import_edge_cwn_sense(self):
         print("importing sense edges")
         rows = self.select_query(
-                "SELECT lemma_id, sense_id FROM cwn_sense " + 
-                "UNION " +
-                "SELECT lemma_id, sense_tmpid FROM cwn_sensetmp"
+                "SELECT lemma_id, sense_id FROM cwn_sense "
                )
         for r in rows:
             self.add_edge(r[0], r[1], {"edge_type": "has_sense"})        
@@ -169,9 +178,7 @@ class CWN_Graph:
     def import_edge_cwn_facet(self):
         print("importing facet edges")
         rows = self.select_query(
-                "SELECT sense_id, facet_id FROM cwn_facet "+
-                "UNION " +
-                "SELECT sense_tmpid, facet_tmpid FROM cwn_facettmp "
+                "SELECT sense_id, facet_id FROM cwn_facet "
                )
         for r in rows:
             self.add_edge(r[0], r[1], {"edge_type": "has_facet"})        
@@ -180,7 +187,7 @@ class CWN_Graph:
         print("importing antonym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_antonym", "cwn_antotmp", "antonym_word")
+                   "cwn_antonym", "antonym_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -190,7 +197,7 @@ class CWN_Graph:
         print("importing synonym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_synonym", "cwn_synotmp", "synonym_word")
+                   "cwn_synonym", "synonym_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -200,7 +207,7 @@ class CWN_Graph:
         print("importing holonym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_holo", "cwn_holotmp", "holo_word")
+                   "cwn_holonym", "holo_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -210,7 +217,7 @@ class CWN_Graph:
         print("importing hyponym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_hypo", "cwn_hypotmp", "hypo_word")
+                   "cwn_hyponym", "hypo_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -220,7 +227,7 @@ class CWN_Graph:
         print("importing meronym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_mero", "cwn_merotmp", "mero_word")
+                   "cwn_meronym", "mero_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -230,7 +237,7 @@ class CWN_Graph:
         print("importing nearsynonym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_nearsyno", "cwn_nearsynotmp", "nearsyno_word")
+                   "cwn_nearsynonym", "nearsyno_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -240,7 +247,7 @@ class CWN_Graph:
         print("importing hypernym edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_upword", "cwn_uptmp", "up_word")
+                   "cwn_upword", "up_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
@@ -250,12 +257,21 @@ class CWN_Graph:
         print("importing varwords edges")
         rows = self.select_query(
                self.prepare_relation_sql(
-                   "cwn_varword", "cwn_vartmp", "var_word")
+                   "cwn_variant", "var_word")
                )
         for r in rows:
             resolved_id = self.resolve_refid(r[1], r[2], r[3])            
             self.add_edge(r[0], resolved_id, {"edge_type": "varword"})        
 
+    def import_edge_cwn_relation(self):
+        print("importing varwords edges")
+        rows = self.select_query(cwn_sql_cwn_relation_templ)
+        for r in rows:
+            from_id = r[0]
+            to_id = r[1]
+            rel_type = r[2]
+            self.add_edge(from_id, to_id, {"edge_type": rel_type})
+        
     def import_edge_relations(self):
         print("importing other relation edges")
         rows = self.select_query(cwn_sql_other_relations)
@@ -264,8 +280,8 @@ class CWN_Graph:
             from_cwn_id = r[0]+r[1]+r[2]
             self.add_edge(from_cwn_id, resolved_id, {"edge_type": "varword"})        
 
-    def prepare_relation_sql(self, tbl, tbltmp, wfield):
-        sql = cwn_sql_relations_templ.format(tbl, tbltmp, wfield)
+    def prepare_relation_sql(self, tbl, wfield):
+        sql = cwn_sql_relations_templ.format(tbl, wfield)
         return sql
         
 
@@ -283,6 +299,8 @@ class CWN_Graph:
     def add_edge(self, from_id, to_id, edge_data):
         V = self.V
         E = self.E
+        from_id = self.normalize_cwnid(from_id)
+        to_id = self.normalize_cwnid(to_id)
         if from_id not in V:
             self.logger.warning("Cannot find the from node when adding edge: "+
                     "%s - %s" % (from_id, to_id))

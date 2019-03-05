@@ -1,3 +1,11 @@
+__pycache__/
+
 *~
 *.swp
 *.tmp
+*.log
+
+cwn_graph.pyObj
+cwn_graph_nodes.json
+cwn_graph_edges.json
+cwn.sqlite
