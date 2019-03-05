@@ -8,4 +8,4 @@ __pycache__/
 cwn_graph.pyObj
 cwn_graph_nodes.json
 cwn_graph_edges.json
-cwn.sqlite
+cwn*.sqlite
