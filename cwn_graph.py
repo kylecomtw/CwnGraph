@@ -83,7 +83,8 @@ class CWN_Graph:
         
     def import_node_cwn_lemma(self):
         print("importing lemma nodes")
-        rows = self.select_query("SELECT * FROM cwn_lemma")
+        rows = self.select_query("SELECT lemma_id, cwn_zhuyin, "
+            "lemma_type, lemma_sno FROM cwn_lemma")
         for r in rows:        
             if r[0] is None or len(r[0]) == 0:
                 logger.info("Skip lemma with no id: %s" % (r[1],))
@@ -92,8 +93,9 @@ class CWN_Graph:
             node_id = r[0]
             node_data = {
                 "node_type": "lemma",
-                "lemma": r[1],
-                "zhuyin": r[3]
+                "lemma_sno": r[3],
+                "lemma": r[2],
+                "zhuyin": r[1]
             }
             self.add_node(node_id, node_data)
 
