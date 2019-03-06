@@ -1,7 +1,7 @@
 import sqlite3
 import logging
 import pdb
-from cwn_sql_template import *
+from .cwn_sql_template import *
 
 logger = logging.getLogger("CWN_Graph")
 logger.setLevel(logging.DEBUG)

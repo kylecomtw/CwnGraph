@@ -13,6 +13,10 @@ class CwnLemma:
             **self.__dict__
         )
 
+    @staticmethod
+    def from_word(word, cgu):
+        return cgu.find_lemma(word)
+
     @property
     def senses(self):                
         if self._senses is None:
@@ -37,8 +41,8 @@ class CwnSense:
         self._lemmas = None
     
     def __repr__(self):
-        return "<CwnSense[{nid}]: {definition}>".format(
-            **self.__dict__
+        return "<CwnSense[{nid}]({head}): {definition}>".format(
+            head=self.lemmas[0].lemma, **self.__dict__
         )
     
     @property
@@ -68,3 +72,9 @@ class CwnSense:
     @property
     def hypernym(self):
         relation_infos = self.relations
+        hypernym = [x[1] for x in relation_infos if x[0] == "hypernym"]
+        return hypernym
+    
+
+        
+

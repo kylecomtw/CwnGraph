@@ -1,6 +1,6 @@
 
 import pickle
-import cwn_graph_utils
+from . import cwn_graph_utils
 import networkx as nx
 
 with open("cwn_graph.pyobj", "rb") as fin:

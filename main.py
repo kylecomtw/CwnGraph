@@ -1,11 +1,10 @@
 import sqlite3
 import pickle
-import cwn_graph as CG
+import CwnGraph
+from CwnGraph import CWN_Graph, CwnGraphUtils
 import sys
 import os
 import pdb
-import cwnio
-from cwn_graph_utils import CwnGraphUtils
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -14,12 +13,12 @@ if __name__ == "__main__":
         task = "out"
 
     if task == "encode":
-        conn = sqlite3.connect("cwn-2016.sqlite")
-        cg = CG.CWN_Graph(conn)
-        with open("cwn_graph.pyobj", "wb") as fout:
+        conn = sqlite3.connect("data/cwn-2016.sqlite")
+        cg = CWN_Graph(conn)
+        with open("data/cwn_graph.pyobj", "wb") as fout:
             pickle.dump((cg.V, cg.E), fout)
     elif task == "query":
-        with open("cwn_graph.pyobj", "rb") as fin:
+        with open("data/cwn_graph.pyobj", "rb") as fin:
             V, E = pickle.load(fin)
 
         cgu = CwnGraphUtils(V, E)
@@ -33,13 +32,13 @@ if __name__ == "__main__":
 
         print(rel)
     elif task == "json":
-        if not os.path.exists("cwn_graph.pyobj"):
+        if not os.path.exists("data/cwn_graph.pyobj"):
             print("Cannot find cwn_graph.pyobj")
             exit()
 
-        with open("cwn_graph.pyobj", "rb") as fin:
+        with open("data/cwn_graph.pyobj", "rb") as fin:
             V, E = pickle.load(fin)
-            cwnio.dump_json(V, E)
+            CwnGraph.io.dump_json(V, E, "data/cwn_graph")
 
     else:
         print("Not recognized task")
