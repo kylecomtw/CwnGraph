@@ -67,7 +67,10 @@ class CWN_Graph:
         counter = 0
         for r in rows:
             gtxt = r[0]
-            if r[0] is None: continue
+            if not r[0]:
+                logger.info("empty lemma")
+                continue
+
             if r[0][-1] in "0123456789":
                 gtxt = r[0][:-1]
             
@@ -161,7 +164,10 @@ class CWN_Graph:
                )
 
         for r in rows:
-            gtxt = r[0]
+            if not r[0]:
+                logger.info("empty lemma")
+                continue
+            gtxt = r[0]            
             if r[0][-1] in "0123456789":
                 gtxt = r[0][:-1]
             
