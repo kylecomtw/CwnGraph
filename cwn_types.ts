@@ -18,6 +18,7 @@ class CwnGlyph {
 class CwnLemma {
     node_type: "lemma";
     lemma: string;
+    lemma_sno: number;
     zhuyin: string;
 }
 

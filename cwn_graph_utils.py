@@ -1,5 +1,6 @@
 import pdb
 import re
+from cwn_types import *
 
 class CwnGraphUtils:
     def __init__(self, V, E):
@@ -19,7 +20,7 @@ class CwnGraphUtils:
         for v, vdata in self.V.items():
             if vdata["node_type"] == "lemma":
                 if pat.match(vdata["lemma"]) is not None:               
-                   ret.append(v)
+                   ret.append(CwnLemma(v, self))
         return ret
 
     def find_edges(self, node_id, is_directed = True):
@@ -31,6 +32,24 @@ class CwnGraphUtils:
                 ret.append((e[0], edata["edge_type"] + "_of"))
         return ret
     
+    def connected(self, node_id, is_directed = True):
+        ret = []
+        visited = set()
+        buf = [node_id]
+        while buf:
+            node_x = buf.pop()
+            visited.add(node_x)
+            conn_edges = self.find_edges(node_x, is_directed)            
+            for conn_edge_x in conn_edges:
+                conn_node_x = conn_edge_x[0]
+                conn_rel = conn_edge_x[1]
+                if conn_node_x in visited or conn_node_x in buf:
+                    continue
+                else:
+                    buf.append(conn_node_x)
+                ret.append((node_x, conn_rel, conn_node_x))
+        return ret
+
     def get_node_def(self, node_id):
         return self.get_node_data(node_id, "def")
     

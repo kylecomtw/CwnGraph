@@ -14,7 +14,7 @@ if __name__ == "__main__":
         task = "out"
 
     if task == "encode":
-        conn = sqlite3.connect("cwn.sqlite")
+        conn = sqlite3.connect("cwn-2016.sqlite")
         cg = CG.CWN_Graph(conn)
         with open("cwn_graph.pyobj", "wb") as fout:
             pickle.dump((cg.V, cg.E), fout)
