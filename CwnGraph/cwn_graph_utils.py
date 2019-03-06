@@ -7,7 +7,7 @@ class CwnGraphUtils:
         self.V = V
         self.E = E
         self.edge_src_index = {x[0]: x for x in E.keys()}
-        self.edge_trg_index = {x[1]: x for x in E.keys()}
+        self.edge_tgt_index = {x[1]: x for x in E.keys()}
 
     def find_glyph(self, instr):
         for v, vdata in self.V.items():
@@ -27,13 +27,11 @@ class CwnGraphUtils:
 
     def find_edges(self, node_id, is_directed = True):
         ret = []
-        for e in self.edge_src_index[node_id]:
-            edata = self.E[e]
-            ret.append((e[1], edata["edge_type"]))        
+        for e in self.edge_src_index[node_id]:            
+            ret.append(CwnRelation(e, self))            
         if not is_directed:
-            for e in self.edge_src_index[node_id]:
-                edata = self.E[e]
-                ret.append((e[1], edata["edge_type"] + "_of"))
+            for e in self.edge_tgt_index[node_id]:
+                ret.append(CwnRelation(e, self, reversed=True))   
 
         return ret
     
@@ -61,26 +59,10 @@ class CwnGraphUtils:
         return ret
 
     def get_node_data(self, node_id, field_name = None):
-        if node_id in self.V:
-            node_data = self.V[node_id]
-        else:
-            node_data = {}
-        
-        if field_name is None:
-            return node_data
-        else:
-            return node_data.get(field_name, "")
-    
+        return self.V.get(node_id, {})
+
     def get_edge_data(self, edge_id, field_name = None):
-        if edge_id in self.E:
-            edge_data = self.E[edge_id]
-        else:
-            edge_data = {}
-        
-        if field_name is None:
-            return edge_data
-        else:
-            return edge_data.get(field_name, "")
+        return self.E.get(edge_id, {})
 
 
 

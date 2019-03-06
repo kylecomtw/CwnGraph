@@ -9,12 +9,13 @@ def dump_json(V, E, prefix):
         strE = {f"{k[0]}-{k[1]}": v for k, v in E.items()}
         json.dump(strE, fout, indent=2, ensure_ascii=False)
 
-def dump_merged_json(V, E, fpath):
+def dump_annot_json(meta, V, E, fpath):
     with open(fpath, "w", encoding="UTF-8") as fout:        
         strE = {f"{k[0]}-{k[1]}": v for k, v in E.items()}
-        json.dump({"V": V, "E": strE}, fout, indent=2, ensure_ascii=False)
+        json.dump({"meta": meta, "V": V, "E": strE}, 
+            fout, indent=2, ensure_ascii=False)
 
-def load_merged_json(fpath):
+def load_annot_json(fpath):
     if not os.path.exists(fpath):
         raise FileNotFoundError(f"not found {fpath}")
     
@@ -23,11 +24,12 @@ def load_merged_json(fpath):
     
     V = data["V"]
     strE = data["E"]
+    meta = data["meta"]
     E = {}
 
     for idstr, edata in strE.items():
         eid = tuple(idstr.split("-"))
         E[eid] = edata
     
-    return (V, E)
+    return (meta, V, E)
 
