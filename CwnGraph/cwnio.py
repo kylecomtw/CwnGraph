@@ -33,3 +33,7 @@ def load_annot_json(fpath):
     
     return (meta, V, E)
 
+def ensure_dir(dirpath):
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+        

@@ -6,8 +6,15 @@ class CwnGraphUtils:
     def __init__(self, V, E):
         self.V = V
         self.E = E
-        self.edge_src_index = {x[0]: x for x in E.keys()}
-        self.edge_tgt_index = {x[1]: x for x in E.keys()}
+        self.edge_src_index = self.build_index(E.keys(), lambda x: x[0])
+        self.edge_tgt_index = self.build_index(E.keys(), lambda x: x[1])
+
+    def build_index(self, data, keyfunc):
+        idx = {}        
+        for k in data:                   
+            idx_key = keyfunc(k)
+            idx.setdefault(idx_key, []).append(k)
+        return idx
 
     def find_glyph(self, instr):
         for v, vdata in self.V.items():
@@ -27,10 +34,11 @@ class CwnGraphUtils:
 
     def find_edges(self, node_id, is_directed = True):
         ret = []
-        for e in self.edge_src_index[node_id]:            
+        
+        for e in self.edge_src_index.get(node_id, []):  
             ret.append(CwnRelation(e, self))            
         if not is_directed:
-            for e in self.edge_tgt_index[node_id]:
+            for e in self.edge_tgt_index.get(node_id, []):
                 ret.append(CwnRelation(e, self, reversed=True))   
 
         return ret

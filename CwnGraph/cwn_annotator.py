@@ -6,38 +6,43 @@ from .cwn_types import *
 from .cwn_graph_utils import CwnGraphUtils
 
 class CwnAnnotator:
+    PREFIX = "annot/cwn_annot"
     def __init__(self, cgu, session_name):
         self.parent_cgu = cgu
         self.V = {}
         self.E = {}
         self.meta = {
             "session_name": session_name,
+            "timestamp": "",
             "serial": 0
         }
                 
-        self.load_session(session_name)
-    
-    def load_session(self, name): 
+        self.load(session_name)
+
+    def load(self, name): 
         try:       
             self.meta, self.V, self.E = \
-                cwnio.load_annot_json(f"annot/cwn_annotation_{name}.json")
+                cwnio.load_annot_json(f"{CwnAnnotator.PREFIX}_{name}.json")
             return True
         except FileNotFoundError:
             return False
         
-    def save_session(self, name):
-        cwnio.dump_annot_json(self.meta, self.V, self.E, 
-            f"annot/cwn_annotation_{name}.json")
-
-    def snapshot(self, name):
-        timestamp = datetime.strftime("%y%m%d%H%M%S")
+    def save(self, with_timestamp=False):        
+        name = self.meta["session_name"]
+        timestamp = datetime.now().strftime("%y%m%d%H%M%S")
         self.meta["snapshot"] = timestamp
-        cwnio.dump_annot_json(self.meta, self.V, self.E, 
-            f"annot/cwn_annotation_{name}_{timestamp}.json")
+        cwnio.ensure_dir("annot")
+        if with_timestamp:
+            cwnio.dump_annot_json(self.meta, self.V, self.E, 
+                f"{CwnAnnotator.PREFIX}_{name}_{timestamp}.json")
+        else:
+            cwnio.dump_annot_json(self.meta, self.V, self.E, 
+                f"{CwnAnnotator.PREFIX}_{name}.json")        
     
     def new_node_id(self):
         serial = self.meta.get("serial", 0) + 1
         session_name = self.meta.get("session_name", "")
+        self.meta["serial"] = serial
         return f"{session_name}_{serial:06d}"
 
     def create_lemma(self, lemma):
@@ -51,7 +56,7 @@ class CwnAnnotator:
         node_id = self.new_node_id()
         new_sense = CwnSense(node_id, self)
         new_sense.definition = definition
-        self.set_sense(CwnSense)
+        self.set_sense(new_sense)
         return new_sense
 
     def create_relation(self, src_id, tgt_id, rel_type):
@@ -61,8 +66,9 @@ class CwnAnnotator:
             raise ValueError(f"{tgt_id} not found")
         edge_id = (src_id, tgt_id)
         new_rel = CwnRelation(edge_id, self)
-        new_rel.edge_type = rel_type
+        new_rel.relation_type = rel_type
         self.set_relation(new_rel)
+        return new_rel
 
     def set_lemma(self, cwn_lemma):
         self.V[cwn_lemma.id] = cwn_lemma.data()
@@ -88,18 +94,18 @@ class CwnAnnotator:
     def find_glyph(self, instr):
         return self.parent_cgu.find_glyph(instr)
     
-    def find_lemma(self, instr_regex):
+    def find_lemmas(self, instr_regex):
         cgu = CwnGraphUtils(self.V, self.E)
         lemmas = cgu.find_lemma(instr_regex)
         parent_lemmas = self.parent_cgu.find_lemma(instr_regex)
-        ret = annot_merger.merge(lemmas, parent_lemmas)
+        ret = annot_merger.merge(lemmas, parent_lemmas, self)
         return ret
     
     def find_edges(self, node_id, is_directed = True):
         cgu = CwnGraphUtils(self.V, self.E)
-        edges = cgu.find_edges(node_id, is_directed)
+        edges = cgu.find_edges(node_id, is_directed)        
         parent_edges = self.parent_cgu.find_edges(node_id, is_directed)
-        ret = annot_merger.merge(edges, parent_edges)
+        ret = annot_merger.merge(edges, parent_edges, self)
         return ret
     
     def get_node_data(self, node_id):

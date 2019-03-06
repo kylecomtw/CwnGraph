@@ -11,14 +11,19 @@ class CwnRelationType(Enum):
     nearsynonym = 7
     paranym = 8
     synonym = 9
+    generic = -1
+    has_sense = 91
+    has_lemma = 92
+    has_facet = 93
 
 class CwnLemma(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
         ndata = cgu.get_node_data(nid)
         self.cgu = cgu
         self.id = nid
+        self.node_type = "lemma"
         self.lemma = ndata.get("lemma", "")
-        self.lemma_sno = ndata.get("lemma_sno", "")
+        self.lemma_sno = ndata.get("lemma_sno", 1)
         self.zhuyin = ndata.get("zhuyin", "")
         self.annot = ndata.get("annot", {})
         self._senses = None
@@ -29,7 +34,7 @@ class CwnLemma(CwnAnnotationInfo):
         )
 
     def data(self):
-        data_fields = ["lemma", "lemma_sno", "zhuyin", "annot"]
+        data_fields = ["node_type", "lemma", "lemma_sno", "zhuyin", "annot"]
         return {
             k: self.__dict__[k] for k in data_fields
         }
@@ -43,10 +48,10 @@ class CwnLemma(CwnAnnotationInfo):
         if self._senses is None:
             cgu = self.cgu
             sense_nodes = []
-            edges = cgu.find_edges(self.id)
+            edges = cgu.find_edges(self.id)            
             for edge_x in edges:
-                if edge_x[1] == "has_sense":
-                    sense_nodes.append(CwnSense(edge_x[0], cgu))
+                if edge_x.edge_type == "has_sense":
+                    sense_nodes.append(CwnSense(edge_x.tgt_id, cgu))
             self._senses = sense_nodes
         return self._senses
     
@@ -57,6 +62,7 @@ class CwnSense(CwnAnnotationInfo):
         self.cgu = cgu
         self.id = nid
         self.pos = ndata.get("pos", "")
+        self.node_type = "sense"
         self.definition = ndata.get("def", "")
         self.examples = ndata.get("examples", [])
         self.annot = ndata.get("annot", {})
@@ -64,12 +70,16 @@ class CwnSense(CwnAnnotationInfo):
         self._lemmas = None
     
     def __repr__(self):
-        return "<CwnSense[{nid}]({head}): {definition}>".format(
-            head=self.lemmas[0].lemma, **self.__dict__
+        try:
+            head_word = self.lemmas[0].lemma
+        except (IndexError, AttributeError):
+            head_word = "----"
+        return "<CwnSense[{id}]({head}): {definition}>".format(
+            head=head_word, **self.__dict__
         )
     
     def data(self):
-        data_fields = ["pos", "examples", "annot"]
+        data_fields = ["node_type", "pos", "examples", "annot"]
         data_dict= {
             k: self.__dict__[k] for k in data_fields
         }
@@ -83,8 +93,8 @@ class CwnSense(CwnAnnotationInfo):
             lemma_nodes = []
             edges = cgu.find_edges(self.id, is_directed=False)
             for edge_x in edges:
-                if edge_x[1] == "has_sense_of":
-                    lemma_nodes.append(CwnLemma(edge_x[0], cgu))
+                if edge_x.edge_type == "has_sense":
+                    lemma_nodes.append(CwnLemma(edge_x.src_id, cgu))
             self._lemmas = lemma_nodes
         return self._lemmas
 
@@ -95,8 +105,16 @@ class CwnSense(CwnAnnotationInfo):
             relation_infos = []
             edges = cgu.find_edges(self.id, is_directed=False)
             for edge_x in edges:
-                if not edge_x[1].startswith("has_sense"):
-                    relation_infos.append((edge_x[1], CwnSense(edge_x[0], cgu)))
+                if edge_x.edge_type.startswith("has_sense"):
+                    continue
+                
+                if not edge_x.reversed:
+                    relation_infos.append((edge_x.edge_type, 
+                        CwnSense(edge_x.tgt_id, cgu)))
+                else:
+                    relation_infos.append((edge_x.edge_type + "(rev)", 
+                        CwnSense(edge_x.src_id, cgu)))
+
             self._relations = relation_infos
         return self._relations
     
@@ -111,34 +129,43 @@ class CwnRelation(CwnAnnotationInfo):
         edata = cgu.get_edge_data(eid)
         self.cgu = cgu
         self.id = eid        
-        self.edge_type = edata.get("edge_type", "")
+        self.edge_type = edata.get("edge_type", "generic")
         self.annot = {}
         self.reversed = reversed
     
     def __repr__(self):
         src_id = self.id[0]
         tgt_id = self.id[1]
-        if self.reversed:            
+        if not self.reversed:            
             return f"<CwnRelation> {self.edge_type}: {src_id} -> {tgt_id}"
         else:
-            return f"<CwnRelation> {self.edge_type}: {tgt_id} <- {src_id}"
+            return f"<CwnRelation> {self.edge_type}(rev): {tgt_id} <- {src_id}"
 
     def data(self):
-        data_fields = ["pos", "examples", "annot"]
+        data_fields = ["edge_type", "annot"]
         data_dict= {
             k: self.__dict__[k] for k in data_fields
         }        
         return data_dict
+    
     @property
-    def edge_type(self):
+    def src_id(self):
+        return self.id[0]
+
+    @property
+    def tgt_id(self):
+        return self.id[1]
+
+    @property
+    def relation_type(self):
         return self.edge_type
     
-    @edge_type.setter
-    def edge_type(self, x):
+    @relation_type.setter
+    def relation_type(self, x):        
         if not isinstance(x, CwnRelationType):
             raise ValueError("x must be instance of CwnRelationType")
         else:
-            self.edge_type = str(x)
+            self.edge_type = x.name
 
 
         
