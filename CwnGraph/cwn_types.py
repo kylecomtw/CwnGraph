@@ -16,6 +16,23 @@ class CwnRelationType(Enum):
     has_lemma = 92
     has_facet = 93
 
+    @staticmethod
+    def from_zhLabel(zhlabel):
+        label_map = {
+            "全體詞": CwnRelationType.holonym,
+            "反義詞": CwnRelationType.antonym,
+            "部分詞": CwnRelationType.meronym,
+            "上位詞": CwnRelationType.hypernym,
+            "下位詞": CwnRelationType.hyponym,
+            "異體": CwnRelationType.variant,
+            "近義詞": CwnRelationType.nearsynonym,
+            "類義詞": CwnRelationType.paranym,
+            "同義詞": CwnRelationType.synonym            
+        }
+
+        return label_map.get(zhlabel, CwnRelationType.generic)
+
+
 class CwnLemma(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
         ndata = cgu.get_node_data(nid)

@@ -2,20 +2,12 @@ import sqlite3
 import logging
 import pdb
 from .cwn_sql_template import *
-
-logger = logging.getLogger("CWN_Graph")
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler("cwn_graph.log", "w", encoding="UTF-8")
-ch = logging.StreamHandler()
-fh.setLevel(logging.NOTSET)
-ch.setLevel(logging.ERROR)
-logger.addHandler(ch)
-logger.addHandler(fh)
-
+from .cwn_types import CwnRelationType
 
 class CWN_Graph:
     def __init__(self, dbconn):
-        self.logger = logging.getLogger("CWN_Graph")
+        self.logger = logging.getLogger("CwnGraph.cwn_graph")
+        self.logger.setLevel(logging.INFO)
         self.cur = dbconn.cursor()
         self.V = {}
         self.E = {}
@@ -27,6 +19,10 @@ class CWN_Graph:
         """normalize cwn_id to lemma_id(6) + sense_sno(2)
         facet_id(2) is not considered
         """
+        if cwnid.startswith("syn") or \
+           cwnid.startswith("pwn"):
+           return cwnid
+
         if not cwnid:
             return cwnid
 
@@ -41,12 +37,15 @@ class CWN_Graph:
         self.import_node_cwn_glyph()
         self.import_node_cwn_lemma()
         self.import_node_cwn_sense()
+        self.import_node_cwn_synset()
+        self.import_node_cwn_pwnoffset()
         self.import_node_cwn_facet()
+        
         print("V cardinality: %d " % (len(self.V),))
 
     def import_edges(self):
         self.import_edge_cwn_lemma()
-        self.import_edge_cwn_sense()
+        self.import_edge_cwn_sense()        
         self.import_edge_cwn_facet()
         self.import_edge_cwn_antonym()
         self.import_edge_cwn_holo()
@@ -55,6 +54,8 @@ class CWN_Graph:
         self.import_edge_cwn_nearsyno()
         self.import_edge_cwn_synonym()
         self.import_edge_cwn_upword()
+        self.import_edge_cwn_synset()
+        self.import_edge_cwn_pwnoffset()
         self.import_edge_varword()
         self.import_edge_relations()
         self.import_edge_cwn_relation()
@@ -68,7 +69,7 @@ class CWN_Graph:
         for r in rows:
             gtxt = r[0]
             if not r[0]:
-                logger.info("empty lemma")
+                self.logger.info("empty lemma")
                 continue
 
             if r[0][-1] in "0123456789":
@@ -90,7 +91,7 @@ class CWN_Graph:
             "lemma_type, lemma_sno FROM cwn_lemma")
         for r in rows:        
             if r[0] is None or len(r[0]) == 0:
-                logger.info("Skip lemma with no id: %s" % (r[1],))
+                self.logger.info("Skip lemma with no id: %s" % (r[1],))
                 continue
 
             node_id = r[0]
@@ -134,6 +135,41 @@ class CWN_Graph:
                 }
             self.add_node(node_id, node_data)
 
+    def import_node_cwn_synset(self):
+        print("importing synset nodes")
+
+        rows = self.select_query("""
+        SELECT id, gloss, member, pwn_word, pwn_id
+        FROM cwn_goodsynset        
+        """)
+
+        for r in rows:
+            node_id = f"syn_{r[0]:06d}"
+            node_data = {
+                "node_type": "synset",
+                "gloss": r[1],                
+                "pwn_word": r[3],
+                "pwn_id": r[4]
+            }
+            self.add_node(node_id, node_data)
+
+    def import_node_cwn_pwnoffset(self):
+        print("importing PWN offsets")
+
+        rows = self.select_query("""
+        SELECT synset_sno, synset_word1, synset_offset 
+        FROM cwn_synset
+        """)
+
+        for r in rows:
+            if not r[2]: continue
+            node_id = f"pwn_{r[2].strip()}"
+            node_data = {
+                "node_type": "pwn_synset",
+                "synset_sno": r[0],
+                "synset_word1": r[1]
+            }
+            self.add_node(node_id, node_data)
 
     def import_node_cwn_facet(self):
         print("importing facet nodes")
@@ -165,7 +201,7 @@ class CWN_Graph:
 
         for r in rows:
             if not r[0]:
-                logger.info("empty lemma")
+                self.logger.info("empty lemma")
                 continue
             gtxt = r[0]            
             if r[0][-1] in "0123456789":
@@ -182,6 +218,28 @@ class CWN_Graph:
                )
         for r in rows:
             self.add_edge(r[0], r[1], {"edge_type": "has_sense"})        
+
+    def import_edge_cwn_synset(self):
+        print("importing synset edges")
+        rows = self.select_query(
+                "SELECT id, member FROM cwn_goodsynset"
+               )
+        for r in rows:
+            if not r[1]: continue
+            members = r[1].split(",")            
+            for m in members:
+                synsetid =  f"syn_{r[0]:06d}"
+                self.add_edge(m.strip(), synsetid, {"edge_type": "is_synset"})
+
+    def import_edge_cwn_pwnoffset(self):
+        print("importing PWN offset edges")
+        rows = self.select_query(
+                "SELECT cwn_id, synset_offset, synset_cwnrel FROM cwn_synset"
+               )
+        for r in rows:
+            if not r[1]: continue
+            rel_type = CwnRelationType.from_zhLabel(r[2]).name
+            self.add_edge(r[0], f"pwn_{r[1].strip()}", {"edge_type": rel_type})
 
     def import_edge_cwn_facet(self):
         print("importing facet edges")
@@ -296,26 +354,29 @@ class CWN_Graph:
     def add_node(self, node_id, node_data):
         V = self.V
         if len(node_id) == 0: 
-            logger.warning("Empty node id: %a" % (node_data, ))
+            self.logger.warning("Empty node id: %a" % (node_data, ))
             return
 
         if node_id not in V:
             V[node_id] = node_data
         else:
-            logger.warning("Duplicate node id: %s" % (node_id,))
+            self.logger.info("Duplicate node id: %s" % (node_id,))
     
     def add_edge(self, from_id, to_id, edge_data):
         V = self.V
         E = self.E
+        if not from_id or not to_id: 
+            return 
+
         from_id = self.normalize_cwnid(from_id)
         to_id = self.normalize_cwnid(to_id)
         if from_id not in V:
-            self.logger.warning("Cannot find the from node when adding edge: "+
+            self.logger.warning("from_node missing: "+
                     "%s - %s" % (from_id, to_id))
             return
         
         if to_id not in V:
-            self.logger.warning("Cannot find the to node when adding edge: "+
+            self.logger.warning("to_node missing: "+
                     "%s - %s" % (from_id, to_id))
             return
         
@@ -328,17 +389,49 @@ class CWN_Graph:
     def select_query(self, sqlcmd):
         return self.cur.execute(sqlcmd).fetchall()
     
+    def resolve_lemma(self, lemma, lemma_sno):
+        if lemma_sno:
+            sql_command = f"""
+            SELECT lemma_id FROM cwn_lemma
+            WHERE lemma_type == "{lemma}" AND lemma_sno == {lemma_sno}
+            """
+        else:
+            sql_command = f"""
+            SELECT lemma_id FROM cwn_lemma
+            WHERE lemma_type == "{lemma}"
+            """
+        
+        rows = self.select_query(sql_command)
+        if not rows:
+            return None
+
+        for r in rows:
+            # just ignore the rest
+            return r[0]
+            
+
     def resolve_refid(self, lemma_id, ref_id, lemma):
         # if ref_id is None, lemma_id is in fact cwn_id        
         if ref_id is None:
             return lemma_id
         
         if lemma_id is None:
-            self.logger.warning("Cannot find lemma %s" % (lemma,))
-            return ""
+            if lemma[-1] in "0123456789":
+                lemma_id = self.resolve_lemma(lemma[:-1], lemma[-1])
+            else:
+                lemma_id = self.resolve_lemma(lemma[:-1], None)
 
-        if len(ref_id) != 4:
-            self.logger.warning("invalid ref_id format")
+            if not lemma_id:
+                self.logger.warning("Cannot find lemma %s" % (lemma,))
+                return ""
+            else:
+                # recover successfully, continue
+                pass
+
+        if not ref_id:
+            ref_id="0100"
+        elif len(ref_id) != 4:              
+            self.logger.warning("invalid ref_id format: %s,%s,%s", lemma_id, ref_id, lemma)
             return ""
 
         sense_part = ref_id[0:2]

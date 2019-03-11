@@ -1,16 +1,28 @@
 import sqlite3
 import pickle
+import logging
 import CwnGraph
 from CwnGraph import CWN_Graph, CwnGraphUtils
 import sys
 import os
 import pdb
 
+logger = logging.getLogger("CwnGraph")
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler("cwn_graph.log", "w", encoding="UTF-8")
+ch = logging.StreamHandler()
+formatter = logging.Formatter("%(name)s [%(levelname)s]: %(message)s")
+fh.setLevel(logging.INFO)
+fh.setFormatter(formatter)
+ch.setLevel(logging.ERROR)
+logger.addHandler(ch)
+logger.addHandler(fh)
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         task = sys.argv[1]
     else:
-        task = "out"
+        task = "encode"
 
     if task == "encode":
         conn = sqlite3.connect("data/cwn-2016.sqlite")
