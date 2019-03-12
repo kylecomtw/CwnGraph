@@ -184,6 +184,10 @@ class CwnRelation(CwnAnnotationInfo):
         else:
             self.edge_type = x.name
 
+class GraphStructure:
+    def __init__(self):
+        self.V = {}
+        self.E = {}
 
         
 

@@ -6,6 +6,7 @@ annot/
 *.swp
 *.tmp
 *.log
+*.local.*
 
 cwn_graph.pyObj
 cwn_graph_nodes.json
