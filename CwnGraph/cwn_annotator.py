@@ -9,7 +9,8 @@ class CwnAnnotator:
     PREFIX = "annot/cwn_annot"
     def __init__(self, cgu, session_name):
         self.parent_cgu = cgu
-        self.V = {}
+        self.name = session_name
+        self.V = {}        
         self.E = {}
         self.meta = {
             "session_name": session_name,

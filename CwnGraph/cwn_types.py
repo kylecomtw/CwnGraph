@@ -32,6 +32,45 @@ class CwnRelationType(Enum):
 
         return label_map.get(zhlabel, CwnRelationType.generic)
 
+class CwnNode:
+    def __init__(self):
+        self.id = None
+        self.node_type = None
+    
+    def data(self):
+        raise NotImplementedError("abstract method: CwnNode.data")
+    
+    def __eq__(self, other):
+        raise NotImplementedError()
+    
+    def __hash__(self):
+        raise NotImplementedError()
+
+class CwnGlyph(CwnAnnotationInfo):
+    def __init__(self, nid, cgu):
+        ndata = cgu.get_node_data(nid)
+        self.glyph = ndata.get("glyph", "")
+        self.annot = ndata.get("annot", {})
+    
+    def __repr__(self):
+        return "<CwnLemma: {lemma}_{lemma_sno}>".format(
+            **self.__dict__
+        )
+    
+    def __eq__(self, other):
+        if isinstance(other, CwnGlyph):
+            return self.glyph == other.glyph
+        else:
+            return False
+    
+    def __hash__(self):
+        return hash(self.glyph)
+
+    def data(self):
+        data_fields = ["node_type", "glyph"]
+        return {
+            k: self.__dict__[k] for k in data_fields
+        }  
 
 class CwnLemma(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
@@ -49,6 +88,16 @@ class CwnLemma(CwnAnnotationInfo):
         return "<CwnLemma: {lemma}_{lemma_sno}>".format(
             **self.__dict__
         )
+
+    def __eq__(self, other):
+        if isinstance(other, CwnLemma):
+            return self.lemma == other.lemma and \
+                self.zhuyin == other.zhuyin
+        else:
+            return False
+    
+    def __hash__(self):
+        return hash((self.lemma, self.zhuyin))
 
     def data(self):
         data_fields = ["node_type", "lemma", "lemma_sno", "zhuyin", "annot"]
@@ -81,8 +130,10 @@ class CwnSense(CwnAnnotationInfo):
         self.pos = ndata.get("pos", "")
         self.node_type = "sense"
         self.definition = ndata.get("def", "")
+        self.src = ndata.get("src", None)
         self.examples = ndata.get("examples", [])
-        self.annot = ndata.get("annot", {})
+        self.domain = ndata.get("domain", "")
+        self.annot = ndata.get("annot", {})        
         self._relations = None
         self._lemmas = None
     
@@ -94,9 +145,20 @@ class CwnSense(CwnAnnotationInfo):
         return "<CwnSense[{id}]({head}): {definition}>".format(
             head=head_word, **self.__dict__
         )
+
+    def __eq__(self, other):
+        if isinstance(other, CwnSense):
+            return self.definition == other.definition and \
+                self.pos == other.pos and \
+                (self.src and other.src and self.src == other.src)
+        else:
+            return False
     
+    def __hash__(self):
+        return hash((self.definition, self.pos, self.src))
+
     def data(self):
-        data_fields = ["node_type", "pos", "examples", "annot"]
+        data_fields = ["node_type", "pos", "examples", "domain", "annot"]
         data_dict= {
             k: self.__dict__[k] for k in data_fields
         }
@@ -140,6 +202,42 @@ class CwnSense(CwnAnnotationInfo):
         relation_infos = self.relations
         hypernym = [x[1] for x in relation_infos if x[0] == "hypernym"]
         return hypernym
+
+class CwnFacet(CwnSense):
+    def __init__(self, nid, cgu):
+        super(CwnFacet, self).__init__(nid, cgu)
+        self.node_type = "facet"
+
+class CwnSynset(CwnAnnotationInfo):
+    def __init__(self, nid, cgu):
+        ndata = cgu.get_node_data(nid)
+        self.cgu = cgu    
+        self.id = nid    
+        self.node_type = "synset"
+        self.gloss = ndata.get("gloss", "")
+        self.pwn_word = ndata.get("pwn_word", "")
+        self.pwn_id = ndata.get("pwn_id", "")
+    
+    def __repr__(self):    
+        return "<CwnSynset[{id}]: {gloss}>".format(
+            **self.__dict__
+        )
+    
+    def data(self):
+        data_fields = ["node_type", "gloss", "pwn_word", "pwn_id"]
+        data_dict= {
+            k: self.__dict__[k] for k in data_fields
+        }        
+        return data_dict
+    
+    def __eq__(self, other):
+        if isinstance(other, CwnSynset):
+            return self.gloss == other.gloss                
+        else:
+            return False
+    
+    def __hash__(self):
+        return hash(self.gloss)
 
 class CwnRelation(CwnAnnotationInfo):
     def __init__(self, eid, cgu, reversed=False):
@@ -188,6 +286,7 @@ class GraphStructure:
     def __init__(self):
         self.V = {}
         self.E = {}
+        self.meta = {}
 
         
 

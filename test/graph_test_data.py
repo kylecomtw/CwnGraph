@@ -43,8 +43,11 @@ annot_graph1 = {
         "annot1_00002-annot1_00003": {
             "edge_type": "has_sense"
         },
-        "annot1_00003-annot1_00004": {
+        "annot1_00003-annot1_00005": {
             "edge_type": "is_synset"
+        },
+        "annot1_00003-annot1_00004": {
+            "edge_type": "variant"
         },
     }
 }
@@ -99,7 +102,7 @@ annot_graph1 = {
         "annot2_00002-annot2_00003": {
             "edge_type": "has_sense"
         },
-        "annot2_00003-annot2_00004": {
+        "annot2_00003-annot2_00005": {
             "edge_type": "is_synset"
         },
     }
