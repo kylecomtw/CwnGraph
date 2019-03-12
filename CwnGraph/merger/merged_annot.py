@@ -4,7 +4,7 @@ from datetime import datetime
 from .. import cwnio
 
 class MergedAnnotation(GraphStructure):
-    PREFIX = "merged"
+    PREFIX = "annot/annot_merged"
     def __init__(self, meta, V, E):
         super(MergedAnnotation, self).__init__(self)
         self.V = V
@@ -35,6 +35,12 @@ class MergedAnnotation(GraphStructure):
         byteStr = pickle.dumps((self.V, self.E))
         hashStr = hash(byteStr)[:6]
         return hashStr
+    
+    def resolve(self):
+        raise NotImplementedError()
+
+    def report(self):
+        raise NotImplementedError()
     
 
 

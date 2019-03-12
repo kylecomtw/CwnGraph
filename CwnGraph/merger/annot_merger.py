@@ -1,15 +1,22 @@
 from typing import Set, cast
 from ..cwn_types import GraphStructure, CwnNode, CwnSense, CwnSynset
-from .merger_types import MergedAnnotation
+from ..cwn_types import CwnRelation
+from .merged_annot import MergedAnnotation
 from ..cwn_annotator import CwnAnnotator
-from ..cwn_factory import CwnNodeFactory
+from ..cwn_factory import CwnNodeFactory, CwnEdgeFactory
 
+# TODO: implement conflict and merging reports
 class AnnotationMerger:
     def __init__(self, annotx: CwnAnnotator, annoty: CwnAnnotator):
         self.x = annotx
         self.y = annoty
+        self.hashStr = hash((annotx.name, annoty.name))[:6]
         self.Vm = {}
         self.Em = {}
+        self.merged_idmap = {}
+        self.conflicts = []
+        self.steps = []
+        self.serial = 0
         self.trace = [annotx.meta["session_name"],
             annoty.meta["session_name"]]        
 
@@ -18,11 +25,16 @@ class AnnotationMerger:
         self.merge_edges(self.x.E, self.y.E)
 
         meta_data = {
-            "trace": self.trace
+            "trace": self.trace,
+            "conflicts": self.conflicts
         }
         Gm = MergedAnnotation(meta_data, self.Vm, self.Em)
 
         return Gm
+    
+    def new_node_id(self, node_type):
+        self.serial += 1
+        return f"{self.hashStr}_{self.serial}"
     
     def merge_nodes(self, Vx, Vy):                
         nodes_base = {CwnNodeFactory.createNode(y, self.y.cgu) for y in Vy}
@@ -46,7 +58,7 @@ class AnnotationMerger:
                 nodes_merged.add(node_x)
             
         # add all nodes into merged Graph nodes, Vm
-        for node_m in nodes_merged:
+        for node_m in nodes_merged:            
             self.Vm[node_m.id] = node_m.data()
 
     def merge_node(self, 
@@ -80,4 +92,43 @@ class AnnotationMerger:
         return synset_x
 
     def merge_edges(self, Ex, Ey):
-        pass
+        edges_base = {CwnEdgeFactory.createEdge(y, self.y.cgu) for y in Ey}
+        edges_merged = set()
+        for edge_id_x in Ex.keys():
+            edge_x: CwnRelation = CwnEdgeFactory.createEdge(edge_id_x, self.x.cgu)
+            
+            if edge_x in edges_base:
+                # there are two identitcal edge in Vx and Vy                
+                edge_x = self.merge_edge(edge_x, edges_base)
+                edges_merged.add(edge_x)
+            else:
+                # edge_x is unique in Vx, add it to edges_base
+                edges_merged.add(edge_x)
+            
+        # add all edges into merged Graph edges, Vm
+        for edge_m in edges_merged:
+            self.Em[edge_m.id] = edge_m.data()
+
+    def merge_edge(self, 
+        edge_x: CwnRelation, edges_set: Set[CwnRelation]) -> CwnRelation:
+        for edge_y in edges_set:
+            if edge_y != edge_x: continue    
+            if edge_y.edge_type != edge_x.edge_type:
+                self.add_conflict_entry(edge_x, edge_y)
+            edge_x.annot = {
+                self.x.name: edge_x.annot,
+                self.y.name: edge_y.annot
+            }
+        return edge_x    
+
+    def add_conflict_entry(self, elem_x, elem_y):
+        entry = {
+            "action": "conflict",
+            "xid": elem_x.id,
+            "x": elem_x.data(),
+            "yid": elem_y.id,
+            "y": elem_y.data()
+        }
+        self.conflicts.append(entry)
+        return 
+        

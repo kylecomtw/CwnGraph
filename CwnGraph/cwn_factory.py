@@ -19,4 +19,10 @@ class CwnNodeFactory:
         node = node_class(node_id, cgu)
 
         return node
-        
+
+class CwnEdgeFactory:        
+    @staticmethod
+    def createEdge(edge_id, cgu: CwnGraphUtils):   
+        # edge_data = cgu.get_edge_data(edge_id)
+        edge = CwnRelation(edge_id, cgu)
+        return edge
