@@ -29,8 +29,7 @@ def load_annot_json(fpath):
 
     for idstr, edata in strE.items():
         eid = tuple(idstr.split("-"))
-        E[eid] = edata
-    
+        E[eid] = edata    
     return (meta, V, E)
 
 def ensure_dir(dirpath):

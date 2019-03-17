@@ -1,6 +1,7 @@
 __pycache__/
 .ipynb_checkpoints/
 annot/
+.pytest_cache/
 
 *~
 *.swp

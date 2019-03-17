@@ -10,8 +10,7 @@ from ..cwn_factory import CwnNodeFactory, CwnEdgeFactory
 class AnnotationMerger:
     def __init__(self, annotx: CwnAnnotator, annoty: CwnAnnotator):
         self.x = annotx
-        self.y = annoty
-        self.hashStr = hash((annotx.name, annoty.name))[:6]
+        self.y = annoty        
         self.Vm = {}
         self.Em = {}
         self.merged_idmap = {}
@@ -21,7 +20,10 @@ class AnnotationMerger:
         self.trace = [annotx.meta["session_name"],
             annoty.meta["session_name"]]        
 
-    def merge(self):
+        am_hash = hash((annotx.name, annoty.name))
+        self.hashStr = "{0:x}".format(am_hash)[:6]
+
+    def merge(self) -> MergedAnnotation:
         self.merge_nodes(self.x.V, self.y.V)
         self.merge_edges(self.x.E, self.y.E)
 
@@ -30,8 +32,9 @@ class AnnotationMerger:
             "conflicts": self.conflicts,
             "steps": self.steps
         }
+        
         Gm = MergedAnnotation(meta_data, self.Vm, self.Em)
-
+        
         return Gm
     
     def new_node_id(self, node_type):
@@ -40,42 +43,50 @@ class AnnotationMerger:
     
     def map_new_edge_id(self, edge_id):
         from_id, to_id = edge_id
-        if from_id not in self.merged_idmap:
+        
+        ## We might not need check all x and y for from_id node data.
+        ## But in case x and y came from different base image, we perform 
+        ## this check, perhaps redundantly.
+        if from_id not in self.merged_idmap and \
+            not self.x.get_node_data(from_id) and \
+            not self.y.get_node_data(from_id):
             raise ValueError(f"{from_id} not found when merging")
 
-        if to_id not in self.merged_idmap:
+        if to_id not in self.merged_idmap and \
+            not self.x.get_node_data(to_id) and \
+            not self.y.get_node_data(to_id):
             raise ValueError(f"{to_id} not found when merging")
         
-        return (self.merged_idmap[from_id], 
-                self.merged_idmap[to_id])
+        return (self.merged_idmap.get(from_id, from_id),
+                self.merged_idmap.get(to_id, to_id))
 
     def merge_nodes(self, Vx, Vy):                
         
         nodes_map = {}
         # index nodes in Vx
         for node_x in Vx:
-            node_obj = CwnNodeFactory.createNode(node_x, self.x.cgu)            
+            node_obj = CwnNodeFactory.createNode(node_x, self.x)            
             nodes_map.setdefault(node_obj, []).append(node_obj)
-
+        
         # index nodes in Vy
         for node_y in Vy:
-            node_obj = CwnNodeFactory.createNode(node_y, self.y.cgu)            
+            node_obj = CwnNodeFactory.createNode(node_y, self.y)            
             nodes_map.setdefault(node_obj, []).append(node_obj)
         
         nodes_merged = {}
-        for nodes_list in nodes_map.values():
-            new_id = self.new_node_id(node_x.node_type)
-
-            if len(nodes_list) > 1:
-                # node_x is unique in Vx, add it to nodes_base
-                node_x = nodes_list
+        for nodes_list in nodes_map.values():                                    
+            if len(nodes_list) == 1:
+                # node_x is unique in Vx, add it to nodes_merged
+                node_x = nodes_list[0]
+                new_id = self.new_node_id(node_x.node_type)
                 nodes_merged[new_id] = node_x
                 self.merged_idmap[node_x.id] = new_id
                 self.steps.append(("unique", new_id, node_x.id))
 
-            elif len(nodes_list) > 1:
+            elif len(nodes_list) == 2:
                 # there are two identitcal node in Vx and Vy
                 node_x, node_y = nodes_list[0], nodes_list[1]
+                new_id = self.new_node_id(node_x.node_type)
                 node_m = self.merge_node(node_x, node_y)
                 if node_x.node_type == "sense":                    
                     sense_x: CwnSense = self.merge_sense_node(node_x, node_y)
@@ -89,7 +100,7 @@ class AnnotationMerger:
             else:
                 print("ERROR: " + str(nodes_list))
                 raise ValueError("More than two nodes are identical")
-                            
+
         # add all nodes into merged Graph nodes, Vm
         for node_id, node_m in nodes_merged.items():            
             self.Vm[node_id] = node_m.data()            
@@ -126,18 +137,18 @@ class AnnotationMerger:
 
     def merge_edges(self, Ex, Ey):
         edges_map = {}
-        # index nodes in Vx
+        # index nodes in Ex
         for edge_x in Ex:
-            edge_obj = CwnEdgeFactory.createEdge(edge_x, self.x.cgu)            
+            edge_obj = CwnEdgeFactory.createEdge(edge_x, self.x)            
             edges_map.setdefault(edge_obj, []).append(edge_obj)
 
-        # index nodes in Vy
+        # index nodes in Ey
         for edge_y in Ey:
-            edge_obj = CwnEdgeFactory.createEdge(edge_y, self.y.cgu)            
+            edge_obj = CwnEdgeFactory.createEdge(edge_y, self.y)            
             edges_map.setdefault(edge_obj, []).append(edge_obj)
         
-        edges_merged = {}        
-        for edges_list in edges_merged.values():                        
+        edges_merged = {}              
+        for edges_list in edges_map.values():                        
             if len(edges_list) == 1:
                 edge_x = edges_list[0]
                 new_edge_id = self.map_new_edge_id(edge_x.id)
@@ -156,11 +167,10 @@ class AnnotationMerger:
             else:
                 print("ERROR: " + str(edges_list))
                 raise ValueError("More than two edges are identical")
-                
-            
+                           
         # add all edges into merged Graph edges, Vm
-        for edge_m in edges_merged:
-            self.Em[edge_m.id] = edge_m.data()
+        for edge_id, edge_m in edges_merged.items():
+            self.Em[edge_id] = edge_m.data()
 
     def merge_edge(self, 
         edge_x: CwnRelation, edges_set: Set[CwnRelation]) -> CwnRelation:

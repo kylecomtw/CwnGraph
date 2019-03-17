@@ -1,20 +1,25 @@
+
+import sys
+sys.path.append("../CwnGraph")
 import logging
 from CwnGraph.cwn_types import GraphStructure
+from CwnGraph import CwnAnnotator, CwnBase
+from CwnGraph.merger import annot_merger
+
 
 logger = logging.getLogger()
 logging.basicConfig(level="DEBUG", format="[%(levelname)s] %(message)s")
 
 def test_graph_merge():
-    Gx = GraphStructure()
-    Gy = GraphStructure()
-    Gx.V = {
-        "123": {"123"},
-        "323": {"333"}
-    }
-    Gx.E = {
-        "123-323": {}
-    }
+    cwn = CwnBase("data/cwn_graph.pyobj")    
+    annot1 = CwnAnnotator(cwn, "test_a")
+    annot2 = CwnAnnotator(cwn, "test_b")
+    
+    am = annot_merger.AnnotationMerger(annot1, annot2)
+    
+    merged = am.merge()
+    
+    assert len(merged.V) > 0, "merged graph has non-empty vertices"
+    assert len(merged.E) > 0, "merged graph has non-empty edges"
 
-
-    logger.debug("debug info")
-    return True
+    merged.save()

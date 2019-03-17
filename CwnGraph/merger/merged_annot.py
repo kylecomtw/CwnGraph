@@ -6,10 +6,10 @@ from .. import cwnio
 class MergedAnnotation(GraphStructure):
     PREFIX = "annot/annot_merged"
     def __init__(self, meta, V, E):
-        super(MergedAnnotation, self).__init__(self)
+        super(MergedAnnotation, self).__init__()
         self.V = V
         self.E = E
-        self.meta = meta                
+        self.meta = meta                                
     
     def load(self, name): 
         try:       
@@ -33,7 +33,7 @@ class MergedAnnotation(GraphStructure):
     
     def get_hash(self):
         byteStr = pickle.dumps((self.V, self.E))
-        hashStr = hash(byteStr)[:6]
+        hashStr = ("{0:x}".format(hash(byteStr)))[:6]
         return hashStr
     
     def resolve(self):
