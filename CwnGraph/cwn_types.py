@@ -1,5 +1,5 @@
 import pickle
-import base64
+import hashlib
 from enum import Enum
 from .cwn_annot_types import CwnAnnotationInfo
 
@@ -29,7 +29,7 @@ class CwnRelationType(Enum):
             "異體": CwnRelationType.variant,
             "近義詞": CwnRelationType.nearsynonym,
             "類義詞": CwnRelationType.paranym,
-            "同義詞": CwnRelationType.synonym            
+            "同義詞": CwnRelationType.synonym
         }
 
         return label_map.get(zhlabel, CwnRelationType.generic)
@@ -38,13 +38,13 @@ class CwnNode:
     def __init__(self):
         self.id = None
         self.node_type = None
-    
+
     def data(self):
         raise NotImplementedError("abstract method: CwnNode.data")
-    
+
     def __eq__(self, other):
         raise NotImplementedError()
-    
+
     def __hash__(self):
         raise NotImplementedError()
 
@@ -53,18 +53,18 @@ class CwnGlyph(CwnAnnotationInfo):
         ndata = cgu.get_node_data(nid)
         self.glyph = ndata.get("glyph", "")
         self.annot = ndata.get("annot", {})
-    
+
     def __repr__(self):
         return "<CwnLemma: {lemma}_{lemma_sno}>".format(
             **self.__dict__
         )
-    
+
     def __eq__(self, other):
         if isinstance(other, CwnGlyph):
             return self.glyph == other.glyph
         else:
             return False
-    
+
     def __hash__(self):
         return hash(self.glyph)
 
@@ -85,7 +85,7 @@ class CwnLemma(CwnAnnotationInfo):
         self.zhuyin = ndata.get("zhuyin", "")
         self.annot = ndata.get("annot", {})
         self._senses = None
-    
+
     def __repr__(self):
         return "<CwnLemma: {lemma}_{lemma_sno}>".format(
             **self.__dict__
@@ -97,7 +97,7 @@ class CwnLemma(CwnAnnotationInfo):
                 self.zhuyin == other.zhuyin
         else:
             return False
-    
+
     def __hash__(self):
         return hash((self.lemma, self.zhuyin))
 
@@ -112,17 +112,17 @@ class CwnLemma(CwnAnnotationInfo):
         return cgu.find_lemma(word)
 
     @property
-    def senses(self):                
+    def senses(self):
         if self._senses is None:
             cgu = self.cgu
             sense_nodes = []
-            edges = cgu.find_edges(self.id)            
+            edges = cgu.find_edges(self.id)
             for edge_x in edges:
                 if edge_x.edge_type == "has_sense":
                     sense_nodes.append(CwnSense(edge_x.tgt_id, cgu))
             self._senses = sense_nodes
         return self._senses
-    
+
 
 class CwnSense(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
@@ -135,10 +135,10 @@ class CwnSense(CwnAnnotationInfo):
         self.src = ndata.get("src", None)
         self.examples = ndata.get("examples", [])
         self.domain = ndata.get("domain", "")
-        self.annot = ndata.get("annot", {})        
+        self.annot = ndata.get("annot", {})
         self._relations = None
         self._lemmas = None
-    
+
     def __repr__(self):
         try:
             head_word = self.lemmas[0].lemma
@@ -155,7 +155,7 @@ class CwnSense(CwnAnnotationInfo):
                 (self.src and other.src and self.src == other.src)
         else:
             return False
-    
+
     def __hash__(self):
         return hash((self.definition, self.pos, self.src))
 
@@ -168,7 +168,7 @@ class CwnSense(CwnAnnotationInfo):
         return data_dict
 
     @property
-    def lemmas(self):                
+    def lemmas(self):
         if self._lemmas is None:
             cgu = self.cgu
             lemma_nodes = []
@@ -188,17 +188,17 @@ class CwnSense(CwnAnnotationInfo):
             for edge_x in edges:
                 if edge_x.edge_type.startswith("has_sense"):
                     continue
-                
+
                 if not edge_x.reversed:
-                    relation_infos.append((edge_x.edge_type, 
+                    relation_infos.append((edge_x.edge_type,
                         CwnSense(edge_x.tgt_id, cgu)))
                 else:
-                    relation_infos.append((edge_x.edge_type + "(rev)", 
+                    relation_infos.append((edge_x.edge_type + "(rev)",
                         CwnSense(edge_x.src_id, cgu)))
 
             self._relations = relation_infos
         return self._relations
-    
+
     @property
     def hypernym(self):
         relation_infos = self.relations
@@ -213,31 +213,31 @@ class CwnFacet(CwnSense):
 class CwnSynset(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
         ndata = cgu.get_node_data(nid)
-        self.cgu = cgu    
-        self.id = nid    
+        self.cgu = cgu
+        self.id = nid
         self.node_type = "synset"
         self.gloss = ndata.get("gloss", "")
         self.pwn_word = ndata.get("pwn_word", "")
         self.pwn_id = ndata.get("pwn_id", "")
-    
-    def __repr__(self):    
+
+    def __repr__(self):
         return "<CwnSynset[{id}]: {gloss}>".format(
             **self.__dict__
         )
-    
+
     def data(self):
         data_fields = ["node_type", "gloss", "pwn_word", "pwn_id"]
         data_dict= {
             k: self.__dict__[k] for k in data_fields
-        }        
+        }
         return data_dict
-    
+
     def __eq__(self, other):
         if isinstance(other, CwnSynset):
-            return self.gloss == other.gloss                
+            return self.gloss == other.gloss
         else:
             return False
-    
+
     def __hash__(self):
         return hash(self.gloss)
 
@@ -245,15 +245,15 @@ class CwnRelation(CwnAnnotationInfo):
     def __init__(self, eid, cgu, reversed=False):
         edata = cgu.get_edge_data(eid)
         self.cgu = cgu
-        self.id = eid        
+        self.id = eid
         self.edge_type = edata.get("edge_type", "generic")
         self.annot = {}
         self.reversed = reversed
-    
+
     def __repr__(self):
         src_id = self.id[0]
         tgt_id = self.id[1]
-        if not self.reversed:            
+        if not self.reversed:
             return f"<CwnRelation> {self.edge_type}: {src_id} -> {tgt_id}"
         else:
             return f"<CwnRelation> {self.edge_type}(rev): {tgt_id} <- {src_id}"
@@ -262,9 +262,9 @@ class CwnRelation(CwnAnnotationInfo):
         data_fields = ["edge_type", "annot"]
         data_dict= {
             k: self.__dict__[k] for k in data_fields
-        }        
+        }
         return data_dict
-    
+
     @property
     def src_id(self):
         return self.id[0]
@@ -276,9 +276,9 @@ class CwnRelation(CwnAnnotationInfo):
     @property
     def relation_type(self):
         return self.edge_type
-    
+
     @relation_type.setter
-    def relation_type(self, x):        
+    def relation_type(self, x):
         if not isinstance(x, CwnRelationType):
             raise ValueError("x must be instance of CwnRelationType")
         else:
@@ -289,13 +289,31 @@ class GraphStructure:
         self.V = {}
         self.E = {}
         self.meta = {}
-    
+        self._hash = None
+
+    def compute_dict_hash(self, dict_obj):        
+        m = hashlib.sha1()
+        for k, value in sorted(dict_obj.items()):
+            if isinstance(value, dict):
+                m.update(pickle.dumps(k))                
+                value_hash = self.compute_dict_hash(value)
+                m.update(value_hash.encode())                 
+            else:
+                m.update(pickle.dumps((k, value)))                                       
+        hash_value = m.hexdigest()
+        return hash_value
+
     def get_hash(self):
-        byteStr = pickle.dumps((self.V, self.E))
-        hashHex = hash(byteStr).to_bytes(8, "little", signed=True).hex()
-        hashStr = hashHex[:6]
+        if not self._hash:
+            Vhash = self.compute_dict_hash(self.V)
+            Ehash = self.compute_dict_hash(self.E)
+            m = hashlib.sha1()
+            m.update(Vhash.encode())
+            m.update(Ehash.encode())
+            self._hash = m.hexdigest()        
+        hashStr = self._hash[:6]
         return hashStr
-    
+
     def export(self):
         print("export Graph ", self.get_hash())
         print("export to cwn_graph.pyobj, "
@@ -303,5 +321,5 @@ class GraphStructure:
         with open("data/cwn_graph.pyobj", "wb") as fout:
             pickle.dump((self.V, self.E), fout)
 
-        
+
 

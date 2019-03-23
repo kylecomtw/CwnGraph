@@ -1,3 +1,4 @@
+import hashlib
 from typing import Set, cast
 from itertools import chain
 from ..cwn_types import GraphStructure, CwnNode, CwnSense, CwnSynset
@@ -20,8 +21,9 @@ class AnnotationMerger:
         self.trace = [annotx.meta["session_name"],
             annoty.meta["session_name"]]        
 
-        am_hash = hash((annotx.name, annoty.name))
-        hashHex = am_hash.to_bytes(8, "little", signed=True).hex()
+        m = hashlib.sha1()
+        m.update(annotx.name + annoty.name)        
+        hashHex = m.hexdigest()
         self.hashStr = hashHex[:6]        
 
     def merge(self) -> MergedAnnotation:

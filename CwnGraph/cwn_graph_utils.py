@@ -55,7 +55,8 @@ class CwnGraphUtils(GraphStructure):
                 def_matched = False
             
             if examples:
-                example_matched = any([ex_re.search(ex_x) 
+                ex_san_re = re.compile(r"[\<\>]")
+                example_matched = any([ex_re.search(ex_san_re.sub("", ex_x))
                     for ex_x in sense_x.examples])
             else:
                 example_matched = False

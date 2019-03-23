@@ -11,8 +11,7 @@ class CwnBase(CwnGraphUtils):
             print("ERROR: install cwn_graph.pyobj first")
         with open(fpath, "rb") as fin:
             V, E = pickle.load(fin)     
-        super(CwnBase, self).__init__(V, E)
-        print("load base graph: ", self.get_hash())
+        super(CwnBase, self).__init__(V, E)        
     
     @staticmethod
     def install_cwn(cwn_path):
