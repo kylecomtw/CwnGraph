@@ -21,9 +21,13 @@ class AnnotationMerger:
             annoty.meta["session_name"]]        
 
         am_hash = hash((annotx.name, annoty.name))
-        self.hashStr = "{0:x}".format(am_hash)[:6]
+        hashHex = am_hash.to_bytes(8, "little", signed=True).hex()
+        self.hashStr = hashHex[:6]        
 
     def merge(self) -> MergedAnnotation:
+        if self.x.meta.get("base_hash") != \
+            self.y.meta.get("base_hash"):
+            print("WARNING: merging annotations from different base image")
         self.merge_nodes(self.x.V, self.y.V)
         self.merge_edges(self.x.E, self.y.E)
 
@@ -186,7 +190,7 @@ class AnnotationMerger:
 
     def add_conflict_entry(self, elem_x, elem_y):
         entry = {
-            "action": "conflict",
+            "action": "USE_X|USE_Y|IGNORE",
             "xid": elem_x.id,
             "x": elem_x.data(),
             "yid": elem_y.id,

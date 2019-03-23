@@ -1,3 +1,5 @@
+import pickle
+import base64
 from enum import Enum
 from .cwn_annot_types import CwnAnnotationInfo
 
@@ -70,7 +72,7 @@ class CwnGlyph(CwnAnnotationInfo):
         data_fields = ["node_type", "glyph"]
         return {
             k: self.__dict__[k] for k in data_fields
-        }  
+        }
 
 class CwnLemma(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
@@ -287,6 +289,19 @@ class GraphStructure:
         self.V = {}
         self.E = {}
         self.meta = {}
+    
+    def get_hash(self):
+        byteStr = pickle.dumps((self.V, self.E))
+        hashHex = hash(byteStr).to_bytes(8, "little", signed=True).hex()
+        hashStr = hashHex[:6]
+        return hashStr
+    
+    def export(self):
+        print("export Graph ", self.get_hash())
+        print("export to cwn_graph.pyobj, "
+              "you may need to install it with CwnBase.install_cwn()")
+        with open("data/cwn_graph.pyobj", "wb") as fout:
+            pickle.dump((self.V, self.E), fout)
 
         
 

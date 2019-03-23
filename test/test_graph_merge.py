@@ -11,7 +11,7 @@ logger = logging.getLogger()
 logging.basicConfig(level="DEBUG", format="[%(levelname)s] %(message)s")
 
 def test_graph_merge():
-    cwn = CwnBase("data/cwn_graph.pyobj")    
+    cwn = CwnBase()    
     annot1 = CwnAnnotator(cwn, "test_a")
     annot2 = CwnAnnotator(cwn, "test_b")
     

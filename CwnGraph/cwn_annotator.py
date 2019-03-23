@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime
 from . import cwnio
@@ -15,17 +16,27 @@ class CwnAnnotator:
         self.meta = {
             "session_name": session_name,
             "timestamp": "",
-            "serial": 0
+            "serial": 0,
+            "base_hash": cgu.get_hash()
         }
                 
         self.load(session_name)
 
     def load(self, name): 
-        try:       
+           
+        fpath = f"{CwnAnnotator.PREFIX}_{name}.json"
+        if os.path.exists(fpath):
+            print("loading saved session from ", fpath)
+            
             self.meta, self.V, self.E = \
-                cwnio.load_annot_json(f"{CwnAnnotator.PREFIX}_{name}.json")
+                cwnio.load_annot_json(fpath)
+            base_hash = self.meta.get("base_hash", "")
+            if base_hash and base_hash != self.parent_cgu.get_hash():
+                print("WARNING: loading with a different base image")
             return True
-        except FileNotFoundError:
+
+        else:
+            print("Creating new session", name)
             return False
         
     def save(self, with_timestamp=False):        

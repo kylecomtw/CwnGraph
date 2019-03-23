@@ -29,18 +29,29 @@ class MergedAnnotation(GraphStructure):
                 f"{MergedAnnotation.PREFIX}_{hashstr}_{timestamp}.json")
         else:
             cwnio.dump_annot_json(self.meta, self.V, self.E, 
-                f"{MergedAnnotation.PREFIX}_{hashstr}.json")  
-    
-    def get_hash(self):
-        byteStr = pickle.dumps((self.V, self.E))
-        hashStr = ("{0:x}".format(hash(byteStr)))[:6]
-        return hashStr
+                f"{MergedAnnotation.PREFIX}_{hashstr}.json")          
     
     def resolve(self):
-        raise NotImplementedError()
+        conflicts = self.meta.get("conflicts", {})
+        new_conflicts = []
+        for conf_x in conflicts:
+            action = conf_x.get("action", "")
+            if action == "USE_X":
+                eid = conf_x["xid"]
+                edata = conf_x["x"]
+            elif action == "USE_Y":
+                eid = conf_x["yid"]
+                edata = conf_x["y"]
+            elif action == "IGNORE":
+                pass
+            else:
+                print("unrecognized action: ", action)
+                new_conflicts.append(conf_x)
+            self.E[eid] = edata
+        self.meta["conflicts"] = new_conflicts
+        if new_conflicts:
+            print(f"{len(new_conflicts)} conflict(s) remained")
 
-    def report(self):
-        raise NotImplementedError()
     
 
 

@@ -2,8 +2,9 @@ import pdb
 import re
 from .cwn_types import *
 
-class CwnGraphUtils:
+class CwnGraphUtils(GraphStructure):
     def __init__(self, V, E):
+        super(CwnGraphUtils, self).__init__()
         self.V = V
         self.E = E
         self.edge_src_index = self.build_index(E.keys(), lambda x: x[0])
@@ -32,6 +33,38 @@ class CwnGraphUtils:
                    ret.append(CwnLemma(v, self))
         return ret
 
+    def find_senses(self, lemma="", definition="", examples=""):
+        lemma_re = re.compile(lemma)
+        def_re = re.compile(definition)
+        ex_re = re.compile(examples)
+
+        sense_list = []
+        for node_id, node_x in self.V.items():
+            if not node_x["node_type"] == "sense":
+                continue
+            sense_x = CwnSense(node_id, self)            
+            if lemma:
+                lemma_matched = any(lemma_re.search(lemma_x.lemma) 
+                    for lemma_x in sense_x.lemmas)
+            else:
+                lemma_matched = False
+            
+            if definition:
+                def_matched = def_re.search(sense_x.definition)
+            else:
+                def_matched = False
+            
+            if examples:
+                example_matched = any([ex_re.search(ex_x) 
+                    for ex_x in sense_x.examples])
+            else:
+                example_matched = False
+
+            if lemma_matched or def_matched or \
+                example_matched:
+                sense_list.append(sense_x)                
+        return sense_list            
+            
     def find_edges(self, node_id, is_directed = True):
         ret = []
         
