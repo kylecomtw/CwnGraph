@@ -16,8 +16,7 @@ class CWN_Graph:
         self.import_edges()
     
     def normalize_cwnid(self, cwnid):
-        """normalize cwn_id to lemma_id(6) + sense_sno(2)
-        facet_id(2) is not considered
+        """why normalizing cwn_id??
         """
         if cwnid.startswith("syn") or \
            cwnid.startswith("pwn"):
@@ -26,8 +25,8 @@ class CWN_Graph:
         if not cwnid:
             return cwnid
 
-        if len(cwnid) > 8:
-            cwnid = cwnid[:8]
+        if len(cwnid) >= 10:
+            cwnid = cwnid[:10]
         else:
             pass
         
@@ -174,12 +173,19 @@ class CWN_Graph:
     def import_node_cwn_facet(self):
         print("importing facet nodes")
         rows = self.select_query(
-                "SELECT facet_id, facet_def, domain_id, group_concat(pos) " + 
-                "FROM cwn_facet " +
-                "LEFT JOIN cwn_pos " +
-                "ON cwn_facet.facet_id == cwn_pos.cwn_id " + 
+                "SELECT facet_id, facet_def, domain_id, group_concat(pos), "
+                "group_concat(cwn_example.example_cont, ';') "
+                "FROM cwn_facet "
+                "LEFT JOIN cwn_pos ON cwn_facet.facet_id == cwn_pos.cwn_id "
+                "LEFT JOIN cwn_example ON cwn_facet.facet_id == cwn_example.cwn_id "                
                 "GROUP BY facet_id")
             
+        def pick_pos(poslist):
+            unique_pos = list(set(poslist.split(",")))
+            if len(unique_pos) == 1:
+                return unique_pos[0]
+            else:
+                return ",".join(unique_pos)
 
         for r in rows:
             if r[0] is None or len(r[0]) == 0:
@@ -189,7 +195,8 @@ class CWN_Graph:
                 "node_type": "facet",
                 "def": r[1],
                 "domain": r[2] if r[2] is not None else "",
-                "pos": r[3] if r[3] is not None else ""
+                "pos": pick_pos(r[3]) if r[3] is not None else "",
+                "examples": r[4].split(";") if r[4] is not None else ""
                 }
             self.add_node(node_id, node_data)
     

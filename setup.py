@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='CwnGraph',
-    version='0.2',
+    version='0.3',
     packages=['CwnGraph',],
     license='CC-SA-BY-NC',
     author="Sean Tseng",

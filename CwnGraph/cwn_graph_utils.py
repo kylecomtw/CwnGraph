@@ -29,7 +29,7 @@ class CwnGraphUtils(GraphStructure):
         pat = re.compile(instr_regex)
         for v, vdata in self.V.items():
             if vdata["node_type"] == "lemma":
-                if pat.match(vdata["lemma"]) is not None:               
+                if pat.search(vdata["lemma"]) is not None:               
                    ret.append(CwnLemma(v, self))
         return ret
 
@@ -105,6 +105,8 @@ class CwnGraphUtils(GraphStructure):
 
     def get_edge_data(self, edge_id, field_name = None):
         return self.E.get(edge_id, {})
-
+        
+    def from_sense_id(self, sense_id):
+        return CwnSense(sense_id, self)
 
 

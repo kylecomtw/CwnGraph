@@ -167,6 +167,17 @@ class CwnSense(CwnAnnotationInfo):
         data_dict["def"] = self.definition
         return data_dict
 
+    def all_examples(self):
+        examples = self.examples
+        if isinstance(examples, list):
+            examples = [examples]
+        if not examples:
+            examples = []
+        
+        for facet_x in self.facets:
+            examples.extend(facet_x.examples)
+        return examples
+
     @property
     def lemmas(self):
         if self._lemmas is None:
@@ -187,14 +198,22 @@ class CwnSense(CwnAnnotationInfo):
             edges = cgu.find_edges(self.id, is_directed=False)
             for edge_x in edges:
                 if edge_x.edge_type.startswith("has_sense"):
-                    continue
-
+                    continue                
+                
                 if not edge_x.reversed:
-                    relation_infos.append((edge_x.edge_type,
-                        CwnSense(edge_x.tgt_id, cgu)))
+                    edge_type = edge_x.edge_type
+                    end_node_id = edge_x.tgt_id                    
                 else:
-                    relation_infos.append((edge_x.edge_type + "(rev)",
-                        CwnSense(edge_x.src_id, cgu)))
+                    edge_type = edge_x.edge_type + "(rev)"
+                    end_node_id = edge_x.src_id
+                
+                node_data = cgu.get_node_data(end_node_id) 
+                if node_data.get("node_type") == "facet":
+                    end_node = CwnFacet(end_node_id, cgu) 
+                else:
+                    end_node = CwnSense(end_node_id, cgu)
+
+                relation_infos.append((edge_type, end_node))
 
             self._relations = relation_infos
         return self._relations
@@ -204,11 +223,45 @@ class CwnSense(CwnAnnotationInfo):
         relation_infos = self.relations
         hypernym = [x[1] for x in relation_infos if x[0] == "hypernym"]
         return hypernym
+    
+    @property
+    def synonym(self):
+        relation_infos = self.relations
+        synonyms = [x[1] for x in relation_infos if x[0] == "synonym"]
+        return synonyms
+
+    @property
+    def facets(self):
+        relation_infos = self.relations
+        facets = [x[1] for x in relation_infos if x[0] == "has_facet"]
+        return facets
 
 class CwnFacet(CwnSense):
     def __init__(self, nid, cgu):
         super(CwnFacet, self).__init__(nid, cgu)
         self.node_type = "facet"
+        self._sense = None
+
+    def __repr__(self):
+        try:
+            head_word = self.sense.lemmas[0].lemma
+        except (IndexError, AttributeError):
+            head_word = "----"
+        return "<CwnFacet[{id}]({head}): {definition}>".format(
+            head=head_word, **self.__dict__
+        )
+
+    @property
+    def sense(self):
+        if self._sense is None:
+            cgu = self.cgu            
+            edges = cgu.find_edges(self.id, is_directed=False)
+            for edge_x in edges:
+                if edge_x.edge_type == "has_facet":
+                    self._sense = CwnSense(edge_x.src_id, cgu)
+                    break
+        return self._sense
+        
 
 class CwnSynset(CwnAnnotationInfo):
     def __init__(self, nid, cgu):
