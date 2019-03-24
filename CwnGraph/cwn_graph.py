@@ -130,7 +130,7 @@ class CWN_Graph:
                 "def": r[1],
                 "domain": r[2] if r[2] is not None else "",
                 "pos": pick_pos(r[3]) if r[3] is not None else "",
-                "examples": r[4].split(";") if r[4] is not None else ""
+                "examples": [x.strip() for x in r[4].split(";")] if r[4] is not None else ""
                 }
             self.add_node(node_id, node_data)
 
@@ -196,7 +196,7 @@ class CWN_Graph:
                 "def": r[1],
                 "domain": r[2] if r[2] is not None else "",
                 "pos": pick_pos(r[3]) if r[3] is not None else "",
-                "examples": r[4].split(";") if r[4] is not None else ""
+                "examples": [x.strip() for x in r[4].split(";")] if r[4] is not None else ""
                 }
             self.add_node(node_id, node_data)
     

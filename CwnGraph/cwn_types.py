@@ -169,10 +169,12 @@ class CwnSense(CwnAnnotationInfo):
 
     def all_examples(self):
         examples = self.examples
-        if not isinstance(examples, list):
-            examples = [examples]
         if not examples:
             examples = []
+        if isinstance(examples,str) and\
+            examples != '':
+            examples = [examples]
+        
         
         for facet_x in self.facets:
             examples.extend(facet_x.examples)
