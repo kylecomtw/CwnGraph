@@ -169,7 +169,7 @@ class CwnSense(CwnAnnotationInfo):
 
     def all_examples(self):
         examples = self.examples
-        if isinstance(examples, list):
+        if not isinstance(examples, list):
             examples = [examples]
         if not examples:
             examples = []
