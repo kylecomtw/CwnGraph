@@ -106,6 +106,13 @@ class CwnAnnotator:
     def find_glyph(self, instr):
         return self.parent_cgu.find_glyph(instr)
     
+    def find_senses(self, lemma="", definition="", examples=""):
+        cgu = CwnGraphUtils(self.V, self.E)
+        senses = cgu.find_senses(lemma, defintion, examples)
+        parent_senses = self.parent_cgu.find_senses(lemma, definition, examples)
+        ret = annot_merger.merge(senses, parent_senses, self)
+        return ret
+
     def find_lemmas(self, instr_regex):
         cgu = CwnGraphUtils(self.V, self.E)
         lemmas = cgu.find_lemma(instr_regex)

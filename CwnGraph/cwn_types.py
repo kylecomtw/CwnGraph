@@ -221,11 +221,44 @@ class CwnSense(CwnAnnotationInfo):
         return self._relations
 
     @property
+    def semantic_relations(self):
+        relation_infos = self.relations
+        sem_relations = []
+        for rel_x in relation_infos:
+            rel_type = rel_x[0]
+            excl_types = [
+                "has_sense", "has_facet",
+                "has_lemma", "is_synset"
+            ]
+            if all(x not in rel_type for x in excl_types):
+                sem_relations.append(rel_x[1])
+        return sem_relations
+
+    @property
     def hypernym(self):
         relation_infos = self.relations
         hypernym = [x[1] for x in relation_infos if x[0] == "hypernym"]
         return hypernym
     
+    @property
+    def hyponym(self):
+        relation_infos = self.relations
+        hypernym = [x[1] for x in relation_infos if x[0] == "hyponym"]
+        return hypernym
+
+    @property
+    def synset(self):
+        relation_infos = self.relations
+        synsets = [x[1] for x in relation_infos if x[0] == "is_synset"]
+        if not synsets:
+            synset = None
+        elif len(synsets) == 1:
+            synset = synsets[0]
+        elif len(synsets) > 1:
+            print("WARNING: more than one synset, returning the first")
+            synset = synsets[0]
+        return synset
+
     @property
     def synonym(self):
         relation_infos = self.relations
@@ -274,6 +307,7 @@ class CwnSynset(CwnAnnotationInfo):
         self.gloss = ndata.get("gloss", "")
         self.pwn_word = ndata.get("pwn_word", "")
         self.pwn_id = ndata.get("pwn_id", "")
+        self._relations = None
 
     def __repr__(self):
         return "<CwnSynset[{id}]: {gloss}>".format(
@@ -295,6 +329,46 @@ class CwnSynset(CwnAnnotationInfo):
 
     def __hash__(self):
         return hash(self.gloss)
+    
+    @property
+    def relations(self):
+        if self._relations is None:
+            cgu = self.cgu
+            relation_infos = []
+            edges = cgu.find_edges(self.id, is_directed=False)
+            for edge_x in edges:
+                if edge_x.edge_type.startswith("has_sense"):
+                    continue                
+                
+                if not edge_x.reversed:
+                    edge_type = edge_x.edge_type
+                    end_node_id = edge_x.tgt_id                    
+                else:
+                    edge_type = edge_x.edge_type + "(rev)"
+                    end_node_id = edge_x.src_id
+                
+                node_data = cgu.get_node_data(end_node_id) 
+                ntype = node_data.get("node_type")
+                if ntype == "facet":
+                    end_node = CwnFacet(end_node_id, cgu) 
+                elif ntype == "sense":
+                    end_node = CwnSense(end_node_id, cgu)
+                elif ntype == "synset":
+                    end_node = CwnSynset(end_node_id, cgu)
+                else:
+                    end_node = None
+
+                relation_infos.append((edge_type, end_node))
+
+            self._relations = relation_infos
+        return self._relations
+
+    @property
+    def senses(self):
+        relation_infos = self.relations
+        senses = [x[1] for x in relation_infos if x[0].startswith("is_synset")]
+        return senses
+
 
 class CwnRelation(CwnAnnotationInfo):
     def __init__(self, eid, cgu, reversed=False):
